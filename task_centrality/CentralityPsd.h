@@ -30,6 +30,7 @@ public:
 
     out_tree_->Branch(out_branch_.c_str(), "AnalysisTree::Container", &ana_event_header_);
     config_->AddBranchConfig(centrality_branch);
+    out_config_->AddBranchConfig(centrality_branch);
     ana_event_header_->Init(centrality_branch);
 
     branches_map.emplace("Centrality", ana_event_header_);
