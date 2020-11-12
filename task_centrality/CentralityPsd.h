@@ -28,7 +28,7 @@ public:
     centrality_Epsd_fid = centrality_branch.GetFieldId("Centrality_Epsd");
     Epsd_total_fid = centrality_branch.GetFieldId("Epsd_total");
 
-    out_tree_->Branch(out_branch_.c_str(), "AnalysisTree::Container", &ana_event_header_);
+    out_tree_->Branch(out_branch_.c_str(), "AnalysisTree::EventHeader", &ana_event_header_);
     config_->AddBranchConfig(centrality_branch);
     out_config_->AddBranchConfig(centrality_branch);
     ana_event_header_->Init(centrality_branch);
