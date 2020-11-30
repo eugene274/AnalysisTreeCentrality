@@ -8,7 +8,7 @@
 #include "at_task/Task.h"
 
 #include <centrality/Getter.h>
-#include <core/Detector.hpp>
+#include <AnalysisTree/Detector.hpp>
 #include <TTree.h>
 #include <TChain.h>
 
@@ -17,7 +17,7 @@
 
 #include <AnalysisTree/EventHeader.hpp>
 
-class CentralityPsd : public UserTask {
+class CentralityPsd : public UserFillTask {
 
 public:
   void Init(std::map<std::string, void *> &branches_map) override {
