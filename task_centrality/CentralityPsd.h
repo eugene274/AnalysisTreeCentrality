@@ -28,7 +28,10 @@ class CentralityPsd : public UserFillTask {
     options_description desc(GetName() + " options");
     desc.add_options()
         ("getter-file", value(&getter_file_)->required(), "Path to centrality getter")
-        ("getter-name", value(&getter_name_)->default_value("centr_getter_1d"), "Name of the getter");
+        ("getter-name", value(&getter_name_)->default_value("centr_getter_1d"), "Name of the getter")
+        ("scale-energy-factor", value(&energy_scale_factor)->default_value(1.0),
+            "Energy scale factor")
+        ;
     return desc;
   }
   void PreInit() override {
@@ -69,6 +72,7 @@ class CentralityPsd : public UserFillTask {
       auto signal = channel[psd_channel_signal];
       total_signal += signal;
     }
+    total_signal *= energy_scale_factor;
     auto centrality = float(centrality_getter_->GetCentrality(total_signal));
     (*centrality_branch)[centrality_Epsd_fid] = float(centrality);
 
@@ -83,6 +87,7 @@ class CentralityPsd : public UserFillTask {
  private:
   std::string getter_file_;
   std::string getter_name_;
+  float energy_scale_factor{1.0};
 
   typedef AnalysisTree::Detector<AnalysisTree::Module> ModuleDetector;
 
