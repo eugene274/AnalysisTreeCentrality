@@ -19,42 +19,10 @@
 
 class CentralityPsd : public UserFillTask {
 
-public:
-  void Init(std::map<std::string, void *> &branches_map) override {
-    psd = static_cast<ModuleDetector *>(branches_map.at("PsdModules"));
-    in_chain_->SetBranchAddress("PsdModules", &psd);
-
-    AnalysisTree::BranchConfig centrality_branch(out_branch_, AnalysisTree::DetType::kEventHeader);
-    centrality_branch.AddField<float>("Centrality_Epsd");
-    centrality_branch.AddField<float>("Epsd_total");
-    centrality_Epsd_fid = centrality_branch.GetFieldId("Centrality_Epsd");
-    Epsd_total_fid = centrality_branch.GetFieldId("Epsd_total");
-
-    auto ana_event_header_id = config_->GetNumberOfBranches();
-    ana_event_header_ = new AnalysisTree::EventHeader(ana_event_header_id);
-    out_tree_->Branch(out_branch_.c_str(), &ana_event_header_);
-    config_->AddBranchConfig(centrality_branch);
-    out_config_->AddBranchConfig(centrality_branch);
-    ana_event_header_->Init(centrality_branch);
-
-    branches_map.emplace("Centrality", ana_event_header_);
-  }
-  void Exec() override {
-    auto n_channel = psd->GetNumberOfChannels();
-
-    float total_signal = 0.;
-    for (int ich = 0; ich < n_channel; ++ich) {
-      auto channel = psd->GetChannel(ich);
-      auto signal = channel.GetSignal();
-      total_signal += signal;
-    }
-    float centrality = centrality_getter_->GetCentrality(total_signal);
-    ana_event_header_->SetField(centrality, centrality_Epsd_fid);
-    ana_event_header_->SetField(total_signal, Epsd_total_fid);
-  }
-  void Finish() override {
-
-  }
+ public:
+ protected:
+  bool UseATI2() const override { return true; }
+ public:
   boost::program_options::options_description GetBoostOptions() override {
     using namespace boost::program_options;
     options_description desc(GetName() + " options");
@@ -64,7 +32,6 @@ public:
     return desc;
   }
   void PreInit() override {
-    SetInputBranchNames({"PsdModules"});
     SetOutputBranchName("Centrality");
 
     TFile centrality_file(getter_file_.c_str(), "read");
@@ -79,8 +46,41 @@ public:
     }
 
   }
+  void UserInit(std::map<std::string, void *> &branches_map) override {
+    /* input */
+    psd_branch = GetInBranch("PsdModules");
+    psd_branch->UseFields({{"signal", psd_channel_signal}});
 
-private:
+    /* dedicated branch for centrality */
+    centrality_branch = NewBranch("Centrality", EVENT_HEADER);
+    centrality_Epsd_fid = centrality_branch->NewVariable("Centrality_Epsd", FLOAT);
+    centrality_branch->Freeze();
+
+    /* attach value to the event header */
+    event_header_branch = GetInBranch("RecEventHeader");
+    new_rec_event_header = NewBranch("RecEventHeaderProc", EVENT_HEADER);
+    new_rec_event_header->CloneVariables(event_header_branch->GetConfig());
+    new_rec_event_header->CloneVariables(centrality_branch->GetConfig());
+    new_rec_event_header->Freeze();
+  }
+  void UserExec() override {
+    float total_signal = 0.;
+    for (auto &channel : psd_branch->Loop()) {
+      auto signal = channel[psd_channel_signal];
+      total_signal += signal;
+    }
+    auto centrality = float(centrality_getter_->GetCentrality(total_signal));
+    (*centrality_branch)[centrality_Epsd_fid] = float(centrality);
+
+    /* centrality branch is taken first due to stupid default fields related to the vertex */
+    new_rec_event_header->CopyContents(centrality_branch);
+    new_rec_event_header->CopyContents(event_header_branch);
+  }
+  void UserFinish() override {
+
+  }
+
+ private:
   std::string getter_file_;
   std::string getter_name_;
 
@@ -88,12 +88,19 @@ private:
 
   AnalysisTree::EventHeader *ana_event_header_{nullptr};
   ModuleDetector *psd{nullptr};
-  int centrality_Epsd_fid{-999};
-  int Epsd_total_fid{-999};
 
   std::shared_ptr<Centrality::Getter> centrality_getter_;
 
-TASK_DEF(CentralityPsd, 0);
+  ATI2::Branch *psd_branch;
+  ATI2::Variable psd_channel_signal;
+
+  ATI2::Branch *centrality_branch;
+  ATI2::Variable centrality_Epsd_fid;
+
+  ATI2::Branch *event_header_branch;
+  ATI2::Branch *new_rec_event_header;
+
+ TASK_DEF(CentralityPsd, 0);
 };
 
 #endif //ATCENTRALITYTASK_TASK_CENTRALITY_CENTRALITYPSD_H
