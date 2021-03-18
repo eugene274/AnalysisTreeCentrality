@@ -7,7 +7,6 @@
 TASK_IMPL(TaskPsdModules90)
 
 void TaskPsdModules90::UserInit(std::map<std::string, void *> &map) {
-  BypassBranches();
   psd_sections = GetInBranch("PsdSections");
   psd_modules = GetInBranch("PsdModules");
   psd_modules->UseFields({
