@@ -9,7 +9,7 @@ include(FetchContent)
 FetchContent_Declare(
         ATTaskSkeleton
         GIT_REPOSITORY https://github.com/eugene274/AnalysisTreeTaskSkeleton.git
-        GIT_TAG        f89012f87e7ba6598e50254789e92fd04597f65b
+        GIT_TAG        0.8.0
 )
 FetchContent_MakeAvailable(ATTaskSkeleton)
 
@@ -22,3 +22,4 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Centrality)
 
 add_subdirectory(task_centrality)
+add_subdirectory(task_psd_modules_90)

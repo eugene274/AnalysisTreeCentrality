@@ -1,0 +1,3 @@
+
+add_executable(TaskPsdModules90 TaskPsdModules90.cpp)
+target_link_libraries(TaskPsdModules90 PUBLIC at_task_main)
