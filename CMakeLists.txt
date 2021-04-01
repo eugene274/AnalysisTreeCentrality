@@ -23,3 +23,4 @@ FetchContent_MakeAvailable(Centrality)
 
 add_subdirectory(task_centrality)
 add_subdirectory(task_psd_modules_90)
+add_subdirectory(qa_centrality)
