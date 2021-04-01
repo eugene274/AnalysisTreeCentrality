@@ -50,6 +50,7 @@ class QACentrality : public UserFillTask {
   void UserExec() override;
   void UserFinish() override;
 
+  // Event
   ATI2::Branch *evt_branch;
   ATI2::Variable evt_t1;
   ATI2::Variable evt_t2;
@@ -58,9 +59,22 @@ class QACentrality : public UserFillTask {
   ATI2::Variable evt_e_psd;
   ATI2::Variable evt_fitted_vtx;
 
+  // Psd
   ATI2::Branch *psd_branch;
   ATI2::Variable psd_signal;
   ATI2::Variable psd_number;
+
+  // Vtx tracks
+  ATI2::Branch *vt_branch;
+  ATI2::Variable v_dca_x;
+  ATI2::Variable v_dca_y;
+  ATI2::Variable v_nhits_vtpc1;
+  ATI2::Variable v_nhits_vtpc2;
+  ATI2::Variable v_nhits_mtpc;
+  ATI2::Variable v_nhits_pot_vtpc1;
+  ATI2::Variable v_nhits_pot_vtpc2;
+  ATI2::Variable v_nhits_pot_mtpc;
+
 
   QAStruct *qa_struct_;
 
