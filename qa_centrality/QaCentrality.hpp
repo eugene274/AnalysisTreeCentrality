@@ -55,6 +55,8 @@ class QACentrality : public UserFillTask {
   ATI2::Variable evt_t1;
   ATI2::Variable evt_t2;
   ATI2::Variable evt_t4;
+  ATI2::Variable evt_wfa_s1;
+  ATI2::Variable evt_wfa_t4;
   ATI2::Variable evt_vtx_z;
   ATI2::Variable evt_e_psd;
   ATI2::Variable evt_fitted_vtx;

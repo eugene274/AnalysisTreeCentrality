@@ -13,18 +13,29 @@ TASK_IMPL(QACentrality)
 struct QABasicStruct {
   TDirectory *wd{nullptr};
   TH1 *hE{nullptr};
+  TH1 *hM{nullptr};
   TH2 *hEvsM{nullptr};
+  // vtx
   TH1 *hFittexVtx{nullptr};
   TH1 *hVtxZ{nullptr};
+  // wfa
+  TH1 *hWFA_s1{nullptr};
+  TH1 *hWFA_t4{nullptr};
+
   std::map<int, TH1 *> hESubevents;
   std::map<int, TH2 *> hEvsMSubevents;
 
   void Write() const {
     wd->cd();
     hE->Write();
+    hM->Write();
     hEvsM->Write();
     hFittexVtx->Write();
     hVtxZ->Write();
+
+    hWFA_s1->Write();
+    hWFA_t4->Write();
+
     for (auto &subevent: hESubevents) {
       subevent.second->Write();
     }
@@ -86,10 +97,13 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
                             {"t1", evt_t1},
                             {"t2", evt_t2},
                             {"t4", evt_t4},
+                            {"wfa_s1", evt_wfa_s1},
+                            {"wfa_t4", evt_wfa_t4},
                             // vtx
                             {"fitted_vtx", evt_fitted_vtx},
                             {"vtx_z", evt_vtx_z},
                             {"Epsd", evt_e_psd}
+                            // wfa
                         });
 
   vt_branch = GetInBranch("VtxTracks");
@@ -123,13 +137,20 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
     };
 
     qa_basic_struct.hE = new TH1F("hE", "Energy in PSD;E (GeV)", 600, 0., 6000.);
+    qa_basic_struct.hM = new TH1I("hM",
+                                  "Multiplicity of charged tracks in TPC;(-)", 300, 0., 300.);
     qa_basic_struct.hEvsM = new TH2F("hEvsM", "Energy in PSD vs multiplicity of TPC tracks"
                                               ";M_{TPC}, charged tracks;E (GeV)",
                                      300, 0, 300,
                                      600, 0., 6000.);
 
     qa_basic_struct.hFittexVtx = new TH1I("hFittedVtx", "Vtx fit OK", 2, 0, 2);
-    qa_basic_struct.hVtxZ = new TH1F("hVtxZ", "Z of fitted vertex;Z_{vtx} (cm)", 400, -600., -580.);
+    qa_basic_struct.hVtxZ = new TH1F("hVtxZ", "Z of fitted vertex;Z_{vtx} (cm)", 800, -620., -560.);
+
+    qa_basic_struct.hWFA_s1 = new TH1F("hWFA_s1", "WFA #Delta t_{min}", 500, 0., 50000);
+    qa_basic_struct.hWFA_t4 = (TH1*) qa_basic_struct.hWFA_s1->Clone("hWFA_t4");
+
+
     for (auto psd_id : {kPSD1, kPSD2, kPSD3}) {
       qa_basic_struct.hESubevents.emplace(psd_id, new TH1F(Form("hE_%s", psd_subs_names.at(psd_id).c_str()), "",
                                                            400, 0., 4000.));
@@ -151,7 +172,7 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
   }
 
   {
-    auto qa_fitted_vtx_dir = qa_struct_->qa_file->mkdir("t4_fitted_vtx");
+    auto qa_fitted_vtx_dir = qa_struct_->qa_file->mkdir("t4__fitted_vtx");
     CutQA qa_t4_fitted_vtx;
     qa_t4_fitted_vtx.qa.wd = qa_fitted_vtx_dir;
     init_basic_qa(qa_t4_fitted_vtx.qa);
@@ -161,15 +182,43 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
     qa_struct_->cut_qa_vector.emplace_back(qa_t4_fitted_vtx);
   }
   {
-    auto qa_t4_vtx_z_dir = qa_struct_->qa_file->mkdir("t4_vtx_z");
+    auto qa_t4_vtx_z_dir = qa_struct_->qa_file->mkdir("t4__vtx_z");
     CutQA qa_t4_vtx_z;
     qa_t4_vtx_z.qa.wd = qa_t4_vtx_z_dir;
     init_basic_qa(qa_t4_vtx_z.qa);
     qa_t4_vtx_z.Test = [this]() -> bool {
       return (*evt_branch)[evt_t4].GetBool() &&
-          (-594 < (*evt_branch)[evt_vtx_z] && (*evt_branch)[evt_vtx_z] < -590);
+          (-594 < (*evt_branch)[evt_vtx_z] && (*evt_branch)[evt_vtx_z] < -590) &&
+          TMath::Abs((*evt_branch)[evt_vtx_z] - 591.9000244) > 1e-5
+          ;
     };
     qa_struct_->cut_qa_vector.emplace_back(qa_t4_vtx_z);
+  }
+  {
+    auto qa_t4_vtx_z_wfa_s1_dir = qa_struct_->qa_file->mkdir("t4__vtx_z__wfa_s1");
+    CutQA qa_t4_vtx_z_wfa_s1;
+    qa_t4_vtx_z_wfa_s1.qa.wd = qa_t4_vtx_z_wfa_s1_dir;
+    init_basic_qa(qa_t4_vtx_z_wfa_s1.qa);
+    qa_t4_vtx_z_wfa_s1.Test = [this]() -> bool {
+      return (*evt_branch)[evt_t4].GetBool() &&
+          (-594 < (*evt_branch)[evt_vtx_z] && (*evt_branch)[evt_vtx_z] < -590) &&
+          TMath::Abs((*evt_branch)[evt_vtx_z] - (-591.900024)) > 1e-5 &&
+          (*evt_branch)[evt_wfa_s1].GetVal() > 4000.;
+    };
+    qa_struct_->cut_qa_vector.emplace_back(qa_t4_vtx_z_wfa_s1);
+  }
+  {
+    auto qa_t2_vtx_z_wfa_s1_dir = qa_struct_->qa_file->mkdir("t2__vtx_z__wfa_s1");
+    CutQA qa_t2_vtx_z_wfa_s1;
+    qa_t2_vtx_z_wfa_s1.qa.wd = qa_t2_vtx_z_wfa_s1_dir;
+    init_basic_qa(qa_t2_vtx_z_wfa_s1.qa);
+    qa_t2_vtx_z_wfa_s1.Test = [this]() -> bool {
+      return (*evt_branch)[evt_t2].GetBool() &&
+          (-594 < (*evt_branch)[evt_vtx_z] && (*evt_branch)[evt_vtx_z] < -590) &&
+          TMath::Abs((*evt_branch)[evt_vtx_z] - (-591.900024)) > 1e-5 &&
+          (*evt_branch)[evt_wfa_s1].GetVal() > 4000.;
+    };
+    qa_struct_->cut_qa_vector.emplace_back(qa_t2_vtx_z_wfa_s1);
   }
 }
 void QACentrality::UserExec() {
@@ -241,10 +290,14 @@ void QACentrality::UserExec() {
     auto fit_vtx_ok = evt[evt_fitted_vtx].GetBool() ? 1 : 0;
 
     qa_basic_struct.hE->Fill(e_full);
+    qa_basic_struct.hM->Fill(tpc_chrgd_tracks_mult);
     qa_basic_struct.hEvsM->Fill(tpc_chrgd_tracks_mult, e_full);
 
     qa_basic_struct.hFittexVtx->Fill(fit_vtx_ok);
     qa_basic_struct.hVtxZ->Fill(evt[evt_vtx_z]);
+
+    qa_basic_struct.hWFA_s1->Fill(evt[evt_wfa_s1]);
+    qa_basic_struct.hWFA_t4->Fill(evt[evt_wfa_t4]);
     for (auto psd_id : {kPSD1, kPSD2, kPSD3}) {
       qa_basic_struct.hESubevents[psd_id]->Fill(psd_subevt_e[psd_id]);
       qa_basic_struct.hEvsMSubevents[psd_id]->Fill(tpc_chrgd_tracks_mult, psd_subevt_e[psd_id]);
