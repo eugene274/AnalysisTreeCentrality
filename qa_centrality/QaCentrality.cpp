@@ -232,32 +232,16 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
 
   if (evt_t4)
   {
-    auto qa_t4_vtx_z_wfa_s1_dir = qa_struct_->qa_file->mkdir("t4__vtx_z__wfa_s1");
+    auto qa_t4_wfa_s1_dir = qa_struct_->qa_file->mkdir("t4__wfa_s1");
     CutQA qa_t4_vtx_z_wfa_s1;
-    qa_t4_vtx_z_wfa_s1.qa.wd = qa_t4_vtx_z_wfa_s1_dir;
+    qa_t4_vtx_z_wfa_s1.qa.wd = qa_t4_wfa_s1_dir;
     init_basic_qa(qa_t4_vtx_z_wfa_s1.qa);
     qa_t4_vtx_z_wfa_s1.Test = [this]() -> bool {
       return (*evt_branch)[evt_t4].GetBool() &&
-          (-594 < (*evt_branch)[evt_vtx_z] && (*evt_branch)[evt_vtx_z] < -590) &&
           TMath::Abs((*evt_branch)[evt_vtx_z] - (-591.900024)) > 1e-5 &&
           (*evt_branch)[evt_wfa_s1].GetVal() > 4000.;
     };
     qa_struct_->cut_qa_vector.emplace_back(qa_t4_vtx_z_wfa_s1);
-  }
-
-  if (evt_t2)
-  {
-    auto qa_t2_vtx_z_wfa_s1_dir = qa_struct_->qa_file->mkdir("t2__vtx_z__wfa_s1");
-    CutQA qa_t2_vtx_z_wfa_s1;
-    qa_t2_vtx_z_wfa_s1.qa.wd = qa_t2_vtx_z_wfa_s1_dir;
-    init_basic_qa(qa_t2_vtx_z_wfa_s1.qa);
-    qa_t2_vtx_z_wfa_s1.Test = [this]() -> bool {
-      return (*evt_branch)[evt_t2].GetBool() &&
-          (-594 < (*evt_branch)[evt_vtx_z] && (*evt_branch)[evt_vtx_z] < -590) &&
-          TMath::Abs((*evt_branch)[evt_vtx_z] - (-591.900024)) > 1e-5 &&
-          (*evt_branch)[evt_wfa_s1].GetVal() > 4000.;
-    };
-    qa_struct_->cut_qa_vector.emplace_back(qa_t2_vtx_z_wfa_s1);
   }
 }
 void QACentrality::UserExec() {
