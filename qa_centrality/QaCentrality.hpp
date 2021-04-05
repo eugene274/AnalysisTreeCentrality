@@ -61,6 +61,10 @@ class QACentrality : public UserFillTask {
   ATI2::Variable evt_e_psd;
   ATI2::Variable evt_fitted_vtx;
 
+  // SimEvent
+  ATI2::Branch *sim_evt_branch;
+  ATI2::Variable sim_evt_b;
+
   // Psd
   ATI2::Branch *psd_branch;
   ATI2::Variable psd_signal;

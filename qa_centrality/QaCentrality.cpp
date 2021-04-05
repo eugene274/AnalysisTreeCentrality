@@ -22,19 +22,22 @@ struct QABasicStruct {
   TH1 *hWFA_s1{nullptr};
   TH1 *hWFA_t4{nullptr};
 
+  /* MC-related dependencies */
+  TH1* hB{nullptr};
+
   std::map<int, TH1 *> hESubevents;
   std::map<int, TH2 *> hEvsMSubevents;
 
   void Write() const {
     wd->cd();
-    hE->Write();
-    hM->Write();
-    hEvsM->Write();
-    hFittexVtx->Write();
-    hVtxZ->Write();
+    if (hE) hE->Write();
+    if (hM) hM->Write();
+    if (hEvsM) hEvsM->Write();
+    if (hFittexVtx) hFittexVtx->Write();
+    if (hVtxZ) hVtxZ->Write();
 
-    hWFA_s1->Write();
-    hWFA_t4->Write();
+    if (hWFA_s1) hWFA_s1->Write();
+    if (hWFA_t4) hWFA_t4->Write();
 
     for (auto &subevent: hESubevents) {
       subevent.second->Write();
@@ -42,6 +45,7 @@ struct QABasicStruct {
     for (auto &subevent: hEvsMSubevents) {
       subevent.second->Write();
     }
+    if (hB) hB->Write();
   }
 };
 
@@ -87,6 +91,11 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
   evt_branch = GetInBranch("RecEventHeader");
   evt_branch->GetConfig().Print();
 
+  try {
+    sim_evt_branch = GetInBranch("SimEventHeader");
+    sim_evt_branch->UseFields({{"b", sim_evt_b}}, true);
+  } catch (std::out_of_range& e) { /* IGNORE */ }
+
   psd_branch = GetInBranch("PsdModules");
   psd_branch->UseFields({
                             {"signal", psd_signal},
@@ -104,7 +113,7 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
                             {"vtx_z", evt_vtx_z},
                             {"Epsd", evt_e_psd}
                             // wfa
-                        });
+                        }, true);
 
   vt_branch = GetInBranch("VtxTracks");
   std::tie(v_nhits_vtpc1, v_nhits_vtpc2, v_nhits_mtpc,
@@ -129,7 +138,7 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
       {kT4, "T4"},
   };
 
-  auto init_basic_qa = [](QABasicStruct &qa_basic_struct) {
+  auto init_basic_qa = [this](QABasicStruct &qa_basic_struct) {
     const std::map<int, std::string> psd_subs_names{
         {kPSD1, "PSD1"},
         {kPSD2, "PSD2"},
@@ -147,8 +156,8 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
     qa_basic_struct.hFittexVtx = new TH1I("hFittedVtx", "Vtx fit OK", 2, 0, 2);
     qa_basic_struct.hVtxZ = new TH1F("hVtxZ", "Z of fitted vertex;Z_{vtx} (cm)", 800, -620., -560.);
 
-    qa_basic_struct.hWFA_s1 = new TH1F("hWFA_s1", "WFA #Delta t_{min}", 500, 0., 50000);
-    qa_basic_struct.hWFA_t4 = (TH1*) qa_basic_struct.hWFA_s1->Clone("hWFA_t4");
+    if (evt_wfa_s1) qa_basic_struct.hWFA_s1 = new TH1F("hWFA_s1", "WFA #Delta t_{min}", 500, 0., 50000);
+    if (evt_wfa_t4) qa_basic_struct.hWFA_t4 = (TH1*) qa_basic_struct.hWFA_s1->Clone("hWFA_t4");
 
 
     for (auto psd_id : {kPSD1, kPSD2, kPSD3}) {
@@ -158,6 +167,8 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
           .emplace(psd_id,
                    (TH2 *) qa_basic_struct.hEvsM->Clone(Form("hEvsM_%s", psd_subs_names.at(psd_id).c_str())));
     }
+
+    if (sim_evt_b) qa_basic_struct.hB = new TH1F("hB", "; impact parameter (fm)", 200, 0, 20);
   };
 
   for (auto trig_id : {kT1, kT2, kT4}) {
@@ -171,6 +182,28 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
     qa_struct_->trigger_qa.emplace(trig_id, qa_trigger);
   }
 
+  /* no cuts */
+  {
+    auto qa_no_cuts = qa_struct_->qa_file->mkdir("no_cuts");
+    CutQA qa_t4_fitted_vtx;
+    qa_t4_fitted_vtx.qa.wd = qa_no_cuts;
+    init_basic_qa(qa_t4_fitted_vtx.qa);
+    qa_t4_fitted_vtx.Test = [this]() -> bool { return true; };
+
+    qa_struct_->cut_qa_vector.emplace_back(qa_t4_fitted_vtx);
+  }
+  /* no cuts */
+  {
+    auto qa_vtx_z_dir = qa_struct_->qa_file->mkdir("vtx_z_standard");
+    CutQA qa_vtx_z_standard;
+    qa_vtx_z_standard.qa.wd = qa_vtx_z_dir;
+    init_basic_qa(qa_vtx_z_standard.qa);
+    qa_vtx_z_standard.Test = [this]() -> bool {
+      return (-594 < (*evt_branch)[evt_vtx_z] && (*evt_branch)[evt_vtx_z] < -590); };
+    qa_struct_->cut_qa_vector.emplace_back(qa_vtx_z_standard);
+  }
+
+  if (evt_t4)
   {
     auto qa_fitted_vtx_dir = qa_struct_->qa_file->mkdir("t4__fitted_vtx");
     CutQA qa_t4_fitted_vtx;
@@ -181,6 +214,8 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
     };
     qa_struct_->cut_qa_vector.emplace_back(qa_t4_fitted_vtx);
   }
+
+  if (evt_t4)
   {
     auto qa_t4_vtx_z_dir = qa_struct_->qa_file->mkdir("t4__vtx_z");
     CutQA qa_t4_vtx_z;
@@ -194,6 +229,8 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
     };
     qa_struct_->cut_qa_vector.emplace_back(qa_t4_vtx_z);
   }
+
+  if (evt_t4)
   {
     auto qa_t4_vtx_z_wfa_s1_dir = qa_struct_->qa_file->mkdir("t4__vtx_z__wfa_s1");
     CutQA qa_t4_vtx_z_wfa_s1;
@@ -207,6 +244,8 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
     };
     qa_struct_->cut_qa_vector.emplace_back(qa_t4_vtx_z_wfa_s1);
   }
+
+  if (evt_t2)
   {
     auto qa_t2_vtx_z_wfa_s1_dir = qa_struct_->qa_file->mkdir("t2__vtx_z__wfa_s1");
     CutQA qa_t2_vtx_z_wfa_s1;
@@ -224,11 +263,6 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
 void QACentrality::UserExec() {
   auto &evt = *evt_branch;
 
-  /* map triggers to the bitset */
-  std::bitset<3> triggers_bits{0};
-  triggers_bits.set(kT1, evt[evt_t1].GetBool());
-  triggers_bits.set(kT2, evt[evt_t2].GetBool());
-  triggers_bits.set(kT4, evt[evt_t4].GetBool());
 
   /* get psd subevents energy */
   auto psd_subevt_e = [this]() {
@@ -296,23 +330,35 @@ void QACentrality::UserExec() {
     qa_basic_struct.hFittexVtx->Fill(fit_vtx_ok);
     qa_basic_struct.hVtxZ->Fill(evt[evt_vtx_z]);
 
-    qa_basic_struct.hWFA_s1->Fill(evt[evt_wfa_s1]);
-    qa_basic_struct.hWFA_t4->Fill(evt[evt_wfa_t4]);
+    if (evt_wfa_s1) qa_basic_struct.hWFA_s1->Fill(evt[evt_wfa_s1]);
+    if (evt_wfa_t4) qa_basic_struct.hWFA_t4->Fill(evt[evt_wfa_t4]);
     for (auto psd_id : {kPSD1, kPSD2, kPSD3}) {
       qa_basic_struct.hESubevents[psd_id]->Fill(psd_subevt_e[psd_id]);
       qa_basic_struct.hEvsMSubevents[psd_id]->Fill(tpc_chrgd_tracks_mult, psd_subevt_e[psd_id]);
     }
+
+    if (sim_evt_b) qa_basic_struct.hB->Fill((*sim_evt_branch)[sim_evt_b]);
   };
 
-  for (auto trig_id : {kT1, kT2, kT4}) {
-    if (!triggers_bits.test(trig_id)) {
-      continue;
+
+  if (bool(evt_t1) && bool(evt_t2) && bool(evt_t4)) {
+    /* map triggers to the bitset */
+    std::bitset<3> triggers_bits{0};
+    triggers_bits.set(kT1, evt[evt_t1].GetBool());
+    triggers_bits.set(kT2, evt[evt_t2].GetBool());
+    triggers_bits.set(kT4, evt[evt_t4].GetBool());
+
+    for (auto trig_id : {kT1, kT2, kT4}) {
+      if (!triggers_bits.test(trig_id)) {
+        continue;
+      }
+
+      qa_struct_->hTriggers->Fill(trig_id);
+
+      fill_basic_qa(qa_struct_->trigger_qa[trig_id]);
     }
-
-    qa_struct_->hTriggers->Fill(trig_id);
-
-    fill_basic_qa(qa_struct_->trigger_qa[trig_id]);
   }
+
 
   for (auto &qa_cut : qa_struct_->cut_qa_vector) {
     if (qa_cut.Test()) {
