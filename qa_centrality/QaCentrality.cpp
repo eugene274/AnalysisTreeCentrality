@@ -18,6 +18,7 @@ struct QABasicStruct {
   // vtx
   TH1 *hFittexVtx{nullptr};
   TH1 *hVtxZ{nullptr};
+  TH2 *hMvsVtxZ{nullptr};
   // wfa
   TH1 *hWFA_s1{nullptr};
   TH1 *hWFA_t4{nullptr};
@@ -35,6 +36,7 @@ struct QABasicStruct {
     if (hEvsM) hEvsM->Write();
     if (hFittexVtx) hFittexVtx->Write();
     if (hVtxZ) hVtxZ->Write();
+    if (hMvsVtxZ) hMvsVtxZ->Write();
 
     if (hWFA_s1) hWFA_s1->Write();
     if (hWFA_t4) hWFA_t4->Write();
@@ -155,6 +157,20 @@ void QACentrality::UserInit(std::map<std::string, void *> &map) {
 
     qa_basic_struct.hFittexVtx = new TH1I("hFittedVtx", "Vtx fit OK", 2, 0, 2);
     qa_basic_struct.hVtxZ = new TH1F("hVtxZ", "Z of fitted vertex;Z_{vtx} (cm)", 800, -620., -560.);
+
+    auto linspace = [] (size_t nb, float lo, float hi) {
+      assert(nb > 0);
+      std::vector<double> bin_edges(nb+1);
+      const auto step = (hi - lo)/nb;
+      for (size_t ib = 0; ib < nb; ++ib) {
+        bin_edges[ib] = lo + ib * step;
+      }
+      bin_edges[nb] = hi;
+      return bin_edges;
+    };
+    qa_basic_struct.hMvsVtxZ = new TH2F("hMvsVtxZ",";Z_{vtx} (cm);TPC multiplicity (good tracks)",
+                                        800, linspace(800, -620., -560.).data(),
+                                        9, std::vector<double>({0.,1.,2.,5.,10.,20.,50.,100.,200.,500.}).data());
 
     if (evt_wfa_s1) qa_basic_struct.hWFA_s1 = new TH1F("hWFA_s1", "WFA #Delta t_{min}", 500, 0., 50000);
     if (evt_wfa_t4) qa_basic_struct.hWFA_t4 = (TH1*) qa_basic_struct.hWFA_s1->Clone("hWFA_t4");
@@ -313,6 +329,7 @@ void QACentrality::UserExec() {
 
     qa_basic_struct.hFittexVtx->Fill(fit_vtx_ok);
     qa_basic_struct.hVtxZ->Fill(evt[evt_vtx_z]);
+    qa_basic_struct.hMvsVtxZ->Fill(evt[evt_vtx_z], tpc_chrgd_tracks_mult);
 
     if (evt_wfa_s1) qa_basic_struct.hWFA_s1->Fill(evt[evt_wfa_s1]);
     if (evt_wfa_t4) qa_basic_struct.hWFA_t4->Fill(evt[evt_wfa_t4]);
@@ -325,7 +342,7 @@ void QACentrality::UserExec() {
   };
 
 
-  if (bool(evt_t1) && bool(evt_t2) && bool(evt_t4)) {
+  if (evt_t1 && evt_t2 && evt_t4) {
     /* map triggers to the bitset */
     std::bitset<3> triggers_bits{0};
     triggers_bits.set(kT1, evt[evt_t1].GetBool());
