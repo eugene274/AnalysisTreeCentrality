@@ -52,6 +52,7 @@ class CentralityPsd : public UserFillTask {
 
 
  TASK_DEF(CentralityPsd, 0);
+  ATI2::Variable e_psd;
 };
 
 #endif //ATCENTRALITYTASK_TASK_CENTRALITY_CENTRALITYPSD_H

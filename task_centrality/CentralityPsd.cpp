@@ -18,6 +18,7 @@ void CentralityPsd::UserInit(std::map<std::string, void *> &branches_map) {
   /* dedicated branch for centrality */
   centrality_branch = NewBranch("Centrality", EVENT_HEADER);
   centrality_Epsd = centrality_branch->NewVariable("Centrality_Epsd", FLOAT);
+  e_psd = centrality_branch->NewVariable("Epsd", FLOAT);
   multiplicity_good = centrality_branch->NewVariable("Mgood", INTEGER);
   centrality_branch->Freeze();
 
@@ -40,6 +41,7 @@ void CentralityPsd::UserExec() {
   total_signal *= energy_scale_factor;
   auto centrality = float(centrality_getter_->GetCentrality(total_signal));
   (*centrality_branch)[centrality_Epsd] = centrality;
+  (*centrality_branch)[e_psd] = total_signal;
   (*centrality_branch)[multiplicity_good] = n_passed_cuts;
 
   /* centrality branch is taken first due to stupid default fields related to the vertex */
